@@ -69,6 +69,8 @@ add_library(breezedecoration MODULE
     ${breezedecoration_config_SRCS}
     ${breezedecoration_config_PART_FORMS_HEADERS})
 
+set_property(TARGET breezedecoration PROPERTY CXX_STANDARD 17)
+
 target_link_libraries(breezedecoration
     PUBLIC
         Qt5::Core

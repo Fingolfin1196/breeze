@@ -20,6 +20,7 @@
  */
 #include "breezebutton.h"
 
+#include <KColorScheme>
 #include <KDecoration2/DecoratedClient>
 #include <KColorUtils>
 
@@ -358,6 +359,44 @@ namespace Breeze
 
     }
 
+struct Colours {
+    QColor background, foreground;
+    bool invertible;
+};
+
+static Colours getColours(KDecoration2::DecorationButtonType type, const Decoration* decoration) {
+    typedef KColorScheme::ForegroundRole FGR;
+    typedef KColorScheme::BackgroundRole BGR;
+    using KColorUtils::mix;
+
+    KColorScheme scheme{QPalette::Active, KColorScheme::ColorSet::Window};
+    switch (type) {
+    case DecorationButtonType::Close: {
+        return {scheme.background(BGR::NegativeBackground).color(),
+                scheme.foreground(FGR::NegativeText).color(),
+                true};
+    }
+    case DecorationButtonType::Minimize: {
+        return {scheme.background(BGR::PositiveBackground).color(),
+                scheme.foreground(FGR::PositiveText).color(),
+                false};
+    }
+    case DecorationButtonType::Maximize: {
+        return {scheme.background(BGR::NeutralBackground).color(),
+                scheme.foreground(FGR::NeutralText).color(),
+                false};
+    }
+    case DecorationButtonType::ContextHelp: {
+        return {scheme.background(BGR::VisitedBackground).color(),
+                scheme.foreground(FGR::VisitedText).color(),
+                false};
+    }
+    default: {
+        return {decoration->titleBarColor(), decoration->fontColor(), false};
+    }
+    }
+}
+
     //__________________________________________________________________
     QColor Button::foregroundColor() const
     {
@@ -366,29 +405,28 @@ namespace Breeze
 
             return QColor();
 
-        } else if( isPressed() ) {
+        } 
+        auto [background, foreground, invertible]{getColours(type(), d)};
+        bool outline{d->internalSettings()->outlineCloseButton() && invertible}, checked{isCheckable() && isChecked()};
 
-            return d->titleBarColor();
+        auto main_color{outline || checked ? foreground.darker(120) : foreground};
+        auto normal_color{main_color}, hovered_color{main_color.lighter(115)}, pressed_color{main_color.lighter(130)};
 
-        } else if( type() == DecorationButtonType::Close && d->internalSettings()->outlineCloseButton() ) {
+        if( isPressed() ) {
 
-            return d->titleBarColor();
-
-        } else if( ( type() == DecorationButtonType::KeepBelow || type() == DecorationButtonType::KeepAbove || type() == DecorationButtonType::Shade ) && isChecked() ) {
-
-            return d->titleBarColor();
+            return pressed_color;
 
         } else if( m_animation->state() == QAbstractAnimation::Running ) {
 
-            return KColorUtils::mix( d->fontColor(), d->titleBarColor(), m_opacity );
+            return KColorUtils::mix(normal_color, hovered_color, m_opacity);
 
         } else if( isHovered() ) {
 
-            return d->titleBarColor();
+            return hovered_color;
 
         } else {
 
-            return d->fontColor();
+            return normal_color;
 
         }
 
@@ -404,53 +442,27 @@ namespace Breeze
 
         }
 
-        auto c = d->client().data();
+        auto [background, foreground, invertible]{getColours(type(), d)};
+        bool outline{d->internalSettings()->outlineCloseButton() && invertible}, checked{isCheckable() && isChecked()};
+
+        auto main_color{outline || checked ? KColorUtils::mix(foreground, background, 0.8) : background};
+        auto normal_color{main_color}, hovered_color{main_color.lighter(115)}, pressed_color{main_color.lighter(130)};
+
         if( isPressed() ) {
 
-            if( type() == DecorationButtonType::Close ) return c->color( ColorGroup::Warning, ColorRole::Foreground );
-            else return KColorUtils::mix( d->titleBarColor(), d->fontColor(), 0.3 );
-
-        } else if( ( type() == DecorationButtonType::KeepBelow || type() == DecorationButtonType::KeepAbove || type() == DecorationButtonType::Shade ) && isChecked() ) {
-
-            return d->fontColor();
+            return pressed_color;
 
         } else if( m_animation->state() == QAbstractAnimation::Running ) {
 
-            if( type() == DecorationButtonType::Close )
-            {
-                if( d->internalSettings()->outlineCloseButton() )
-                {
-
-                    return KColorUtils::mix( d->fontColor(), c->color( ColorGroup::Warning, ColorRole::Foreground ).lighter(), m_opacity );
-
-                } else {
-
-                    QColor color( c->color( ColorGroup::Warning, ColorRole::Foreground ).lighter() );
-                    color.setAlpha( color.alpha()*m_opacity );
-                    return color;
-
-                }
-
-            } else {
-
-                QColor color( d->fontColor() );
-                color.setAlpha( color.alpha()*m_opacity );
-                return color;
-
-            }
+            return KColorUtils::mix(normal_color, hovered_color, m_opacity);
 
         } else if( isHovered() ) {
 
-            if( type() == DecorationButtonType::Close ) return c->color( ColorGroup::Warning, ColorRole::Foreground ).lighter();
-            else return d->fontColor();
-
-        } else if( type() == DecorationButtonType::Close && d->internalSettings()->outlineCloseButton() ) {
-
-            return d->fontColor();
+            return hovered_color;
 
         } else {
 
-            return QColor();
+            return normal_color;
 
         }
 
